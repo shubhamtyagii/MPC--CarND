@@ -77,7 +77,7 @@ int main() {
     // The 4 signifies a websocket message
     // The 2 signifies a websocket event
     string sdata = string(data).substr(0, length);
-    cout << sdata << endl;
+    //cout << sdata << endl;
     if (sdata.size() > 2 && sdata[0] == '4' && sdata[1] == '2') {
       string s = hasData(sdata);
       if (s != "") {
@@ -91,7 +91,10 @@ int main() {
           double py = j[1]["y"];
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
+          const double delta = j[1]["steering_angle"];
+          const double a = j[1]["throttle"];
 
+          const double Lf=2.67;
           /*
           * TODO: Calculate steering angle and throttle using MPC.
           * 
@@ -104,27 +107,40 @@ int main() {
             double shift_x=ptsx[i]-px;
             double shift_y=ptsy[i]-py;
 
-            ptsx[i]=(shift_x*cos(0-psi)-shift_y*sin(0-psi));
-            ptsy[i]=(shift_x*sin(0-psi)-shift_y*cos(0-psi));
+            ptsx[i]=(shift_x*cos(-psi)-shift_y*sin(-psi));
+            ptsy[i]=(shift_x*sin(-psi)+shift_y*cos(-psi));
             x_points(i)=ptsx[i];
             y_points(i)=ptsy[i];
           }         
 
+         
+
+          const double act_latency=0.1;
           auto coeffs = polyfit(x_points,y_points,3);
-          double cte = py - polyeval( coeffs , px ) ;
-          double epsi= psi - atan(3* coeffs[3] * pow(px,2) + 2 * coeffs[2] * px + coeffs[1]);
+          double cte = polyeval( coeffs , 0 ) ;
+          double epsi= - atan(coeffs[1]);
+
+          const double current_px = 0.0 + v * act_latency;
+          const double current_py = 0.0;
+          const double current_psi = 0.0 + v * (-delta) / Lf * act_latency;
+          const double current_v = v + a * act_latency;
+          const double current_cte = cte + v * sin(epsi) * act_latency;
+          const double current_epsi = epsi + v * (-delta) / Lf * act_latency;
+
+          
           Eigen::VectorXd state(6);
-          state << px, py, psi, v, cte, epsi;
+
+          state << current_px, current_py, current_psi, current_v, current_cte, current_epsi;
 
           auto vars = mpc.Solve(state, coeffs);
 
-          double steer_value=vars[0];
+          double steer_value=vars[0]/(deg2rad(25)*Lf);
           double throttle_value=vars[1];
           
           json msgJson;
           // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
           // Otherwise the values will be in between [-deg2rad(25), deg2rad(25] instead of [-1, 1].
-          msgJson["steering_angle"] = steer_value/deg2rad(25);
+          msgJson["steering_angle"] = -steer_value;
           msgJson["throttle"] = throttle_value;
 
           //Display the MPC predicted trajectory 
@@ -145,11 +161,12 @@ int main() {
           //Display the waypoints/reference line
           vector<double> next_x_vals;
           vector<double> next_y_vals;
-          double inc=.05;
-          double number=10;
-          for(int i=1;i<number;i++){
-            next_x_vals.push_back(i*inc);
-            next_y_vals.push_back(polyeval(coeffs,i*inc));
+          
+          double D=5;
+          double number =10;
+          for (unsigned int i=0 ; i < number; ++i) {
+            next_x_vals.push_back(D*i);
+            next_y_vals.push_back(polyeval(coeffs,D*i));
           }
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Yellow line
@@ -159,7 +176,7 @@ int main() {
 
 
           auto msg = "42[\"steer\"," + msgJson.dump() + "]";
-          std::cout << msg << std::endl;
+          //std::cout << msg << std::endl;
           // Latency
           // The purpose is to mimic real driving conditions where
           // the car does actuate the commands instantly.

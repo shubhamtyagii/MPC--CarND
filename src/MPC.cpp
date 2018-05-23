@@ -7,7 +7,7 @@ using CppAD::AD;
 
 // TODO: Set the timestep length and duration
 size_t N = 10;
-double dt = 0.08;
+double dt = 0.1;
 
 // This value assumes the model presented in the classroom is used.
 //
@@ -20,7 +20,7 @@ double dt = 0.08;
 //
 // This is the length from front to CoG that has a similar radius.
 const double Lf = 2.67;
-const double ref_vel=35.0;
+const double ref_vel=40.0;
 
 size_t x_start = 0;
 size_t y_start = x_start + N;
@@ -49,17 +49,17 @@ class FG_eval {
     {
      fg[0] += 2000*CppAD::pow(vars[cte_start + t] , 2);
     fg[0] += 2000*CppAD::pow(vars[epsi_start + t], 2);
-    fg[0] += CppAD::pow(vars[v_start + t]-ref_vel, 2);
+    fg[0] += 200*CppAD::pow(vars[v_start + t]-ref_vel, 2);
 }
 
 for (int t = 0; t < N - 1; t++) {
   fg[0] += 10*CppAD::pow(vars[delta_start + t], 2);
-  fg[0] += 10*CppAD::pow(vars[a_start + t], 2);
+  fg[0] += 10* CppAD::pow(vars[a_start + t], 2);
 }
 
 for (int t = 0; t < N - 2; t++) {
-  fg[0] += 10*CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
-  fg[0] += 10*CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
+  fg[0] += 150*CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
+  fg[0] += 15*CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
 }
   fg[1 + x_start] = vars[x_start];
   fg[1 + y_start] = vars[y_start];
@@ -81,16 +81,16 @@ for (int t = 0; t < N - 2; t++) {
       AD<double> v0 = vars[v_start + t - 1];
       AD<double> y0 = vars[y_start + t - 1];
       AD<double> a0 = vars[a_start + t - 1];
-      AD<double> cte0=vars[cte_start+t-1];
-      AD<double> epsi0=vars[epsi_start+t-1];
+      AD<double> cte0=vars[cte_start + t - 1];
+      AD<double> epsi0=vars[epsi_start + t - 1];
       
       AD<double> delta0 = vars[delta_start + t - 1];
       AD<double> f0 = coeffs[0] + coeffs[1] * x0+ coeffs[2] * x0 *x0 + coeffs[3]*CppAD::pow(x0,3);
-      AD<double> psides0 = CppAD::atan(3*coeffs[3]*pow(x0,2)+2*coeffs[2]*x0+coeffs[1]);
+      AD<double> psides0 = -CppAD::atan(3*coeffs[3]*CppAD::pow(x0,2) + 2*coeffs[2]*x0 + coeffs[1]);
 
       fg[1 + x_start + t] = x1 - (x0 + v0 * CppAD::cos(psi0) * dt);
       fg[1 + y_start + t]=  y1 - (y0+v0*CppAD::sin(psi0) * dt);
-      fg[1 + psi_start + t]= psi1 - (psi0+(v0/Lf)*delta0*dt);
+      fg[1 + psi_start + t]= psi1 - (psi0+(v0/Lf)* delta0*dt);
       fg[1+v_start+t]= v1-(v0+a0*dt);
       fg[1+cte_start+t]= cte1 - ((f0 - y0) + (v0 * CppAD::sin(epsi0) * dt));
       fg[1+epsi_start+t]=epsi1 - ((psi0 - psides0) + (v0 * delta0 *dt )/ Lf);
@@ -144,8 +144,8 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
     vars_upperbound[i]= 1.0e19;
   }
   for(unsigned int i=delta_start;i<a_start;i++){
-    vars_lowerbound[i] = -0.436332;
-    vars_upperbound[i] = 0.436332;
+    vars_lowerbound[i] = -0.436332*Lf;
+    vars_upperbound[i] = 0.436332*Lf;
   }
   for(unsigned int i=a_start;i<n_vars;i++){
     vars_lowerbound[i] = -1.0;
@@ -207,7 +207,7 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
 
   // Cost
   auto cost = solution.obj_value;
-  std::cout << "Cost " << cost << std::endl;
+  //std::cout << "Cost " << cost << std::endl;
 
   // TODO: Return the first actuator values. The variables can be accessed with
   // `solution.x[i]`.
@@ -215,10 +215,10 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   // {...} is shorthand for creating a vector, so auto x1 = {1.0,2.0}
   // creates a 2 element double vector.
   vector<double> val_ret;
-  val_ret.push_back(solution.x[delta_start+1]);
-  val_ret.push_back(solution.x[a_start+1]);
+  val_ret.push_back(solution.x[delta_start]);
+  val_ret.push_back(solution.x[a_start]);
 
-  for(int i=1;i<N;i++){
+  for(int i=1;i<N-1;i++){
      val_ret.push_back(solution.x[x_start+i]);
      val_ret.push_back(solution.x[y_start+i]);
   }
