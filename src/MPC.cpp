@@ -20,7 +20,7 @@ double dt = 0.1;
 //
 // This is the length from front to CoG that has a similar radius.
 const double Lf = 2.67;
-const double ref_vel=45.0;
+const double ref_vel=40.0;
 
 size_t x_start = 0;
 size_t y_start = x_start + N;
@@ -47,19 +47,19 @@ class FG_eval {
   
     for (int t = 0; t < N; t++) 
     {
-     fg[0] += 3500*CppAD::pow(vars[cte_start + t] , 2);
-    fg[0] += 3500*CppAD::pow(vars[epsi_start + t], 2);
-    fg[0] += 50*CppAD::pow(vars[v_start + t]-ref_vel, 2);
+     fg[0] += 2000*CppAD::pow(vars[cte_start + t] , 2);
+    fg[0] += 2000*CppAD::pow(vars[epsi_start + t], 2);
+    fg[0] += CppAD::pow(vars[v_start + t]-ref_vel, 2);
 }
 
 for (int t = 0; t < N - 1; t++) {
-  fg[0] += 10*CppAD::pow(vars[delta_start + t], 2);
-  fg[0] +=  10*CppAD::pow(vars[a_start + t], 2);
+  fg[0] += 5*CppAD::pow(vars[delta_start + t], 2);
+  fg[0] += 5* CppAD::pow(vars[a_start + t], 2);
 }
 
 for (int t = 0; t < N - 2; t++) {
-  fg[0] += 150*CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
-  fg[0] += 10*CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
+  fg[0] += 200*CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
+  fg[0] += 15*CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
 }
   fg[1 + x_start] = vars[x_start];
   fg[1 + y_start] = vars[y_start];
@@ -86,7 +86,7 @@ for (int t = 0; t < N - 2; t++) {
       
       AD<double> delta0 = vars[delta_start + t - 1];
       AD<double> f0 = coeffs[0] + coeffs[1] * x0+ coeffs[2] * x0 *x0 + coeffs[3]*CppAD::pow(x0,3);
-      AD<double> psides0 = -CppAD::atan(3*coeffs[3]*CppAD::pow(x0,2) + 2*coeffs[2]*x0 + coeffs[1]);
+      AD<double> psides0 = CppAD::atan(3*coeffs[3]*CppAD::pow(x0,2) + 2*coeffs[2]*x0 + coeffs[1]);
 
       fg[1 + x_start + t] = x1 - (x0 + v0 * CppAD::cos(psi0) * dt);
       fg[1 + y_start + t]=  y1 - (y0+v0*CppAD::sin(psi0) * dt);
@@ -218,9 +218,9 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   val_ret.push_back(solution.x[delta_start]);
   val_ret.push_back(solution.x[a_start]);
 
-  for(int i=0;i<N/2+1;i++){
+  for(int i=1;i<N-1;i++){
      val_ret.push_back(solution.x[x_start+i]);
      val_ret.push_back(solution.x[y_start+i]);
   }
-  return val_ret;
+  return {val_ret};
 }

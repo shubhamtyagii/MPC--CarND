@@ -163,8 +163,8 @@ int main() {
           vector<double> next_y_vals;
           
           double D=5;
-          double number =15;
-          for (unsigned int i=1 ; i < number; ++i) {
+          double number =10;
+          for (unsigned int i=0 ; i < number; ++i) {
             next_x_vals.push_back(D*i);
             next_y_vals.push_back(polyeval(coeffs,D*i));
           }
